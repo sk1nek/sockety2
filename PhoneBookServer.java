@@ -1,0 +1,200 @@
+
+/* 
+ *  Komunikator sieciowy
+ *   - program serwera
+ *
+ *  Autor: Pawel Rogalinski
+ *   Data: 1 grudnia 2017 r.
+ */
+
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+
+import javax.swing.JComboBox;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
+import javax.swing.ScrollPaneConstants;
+
+class PhoneBookServer extends JFrame implements ActionListener, Runnable {
+
+	private static final long serialVersionUID = 1L;
+
+	PhoneBook phoneBook = new PhoneBook();
+
+	static final int SERVER_PORT = 25000;
+
+	public static void main(String[] args) {
+		new PhoneBookServer();
+	}
+
+	private JLabel clientLabel = new JLabel("Odbiorca:");
+	private JLabel messageLabel = new JLabel("Napisz:");
+	private JLabel textAreaLabel = new JLabel("Dialog:");
+	private JComboBox<ClientThread> clientMenu = new JComboBox<ClientThread>();
+	private JTextField messageField = new JTextField(20);
+	private JTextArea textArea = new JTextArea(15, 18);
+	private JScrollPane scroll = new JScrollPane(textArea, ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS,
+			ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+
+	PhoneBookServer() {
+		super("SERWER");
+		setSize(300, 340);
+		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		JPanel panel = new JPanel();
+		panel.add(clientLabel);
+		clientMenu.setPrototypeDisplayValue(new ClientThread("#########################"));
+		panel.add(clientMenu);
+		panel.add(messageLabel);
+		panel.add(messageField);
+		messageField.addActionListener(this);
+		textArea.setLineWrap(true);
+		textArea.setWrapStyleWord(true);
+		panel.add(textAreaLabel);
+		textArea.setEditable(false);
+		panel.add(scroll);
+		setContentPane(panel);
+		setVisible(true);
+		new Thread(this).start(); // Uruchomienie dodatkowego watka
+									// czekajacego na nowych klientow
+	}
+
+	synchronized public void printReceivedMessage(ClientThread client, String message) {
+		String text = textArea.getText();
+		textArea.setText(client.getName() + " >>> " + message + "\n" + text);
+	}
+
+	synchronized public void printSentMessage(ClientThread client, String message) {
+		String text = textArea.getText();
+		textArea.setText(client.getName() + " <<< " + message + "\n" + text);
+	}
+
+	synchronized void addClient(ClientThread client) {
+		clientMenu.addItem(client);
+	}
+
+	synchronized void removeClient(ClientThread client) {
+		clientMenu.removeItem(client);
+	}
+
+	public void actionPerformed(ActionEvent event) {
+		String message;
+		Object source = event.getSource();
+		if (source == messageField) {
+			ClientThread client = (ClientThread) clientMenu.getSelectedItem();
+			if (client != null) {
+				message = messageField.getText();
+				printSentMessage(client, message);
+				client.sendMessage(message);
+			}
+		}
+		repaint();
+	}
+
+	public void run() {
+		boolean socket_created = false;
+
+		// inicjalizacja po³¹czeñ sieciowych
+		try (ServerSocket serwer = new ServerSocket(SERVER_PORT)) {
+			String host = InetAddress.getLocalHost().getHostName();
+			System.out.println("Serwer zosta³ uruchomiony na hoscie " + host);
+			socket_created = true;
+			// koniec inicjalizacji po³¹czeñ sieciowych
+
+			while (true) { // oczekiwanie na po³¹czenia przychdz¹ce od klientów
+				Socket socket = serwer.accept();
+				if (socket != null) {
+					// Tworzy nowy w¹tek do obs³ugi klienta, które
+					// w³aœnie po³¹czy³ siê z serwerem.
+					new ClientThread(this, socket);
+				}
+			}
+		} catch (IOException e) {
+			System.out.println(e);
+			if (!socket_created) {
+				JOptionPane.showMessageDialog(null, "Gniazdko dla serwera nie mo¿e byæ utworzone");
+				System.exit(0);
+			} else {
+				JOptionPane.showMessageDialog(null, "BLAD SERWERA: Nie mozna polaczyc sie z klientem ");
+			}
+		}
+	}
+
+} // koniec klasy MyServer
+
+class ClientThread implements Runnable {
+	private Socket socket;
+	private String name;
+	private PhoneBookServer myServer;
+
+	private ObjectOutputStream outputStream = null;
+
+	// UWAGA: Ten konstruktor tworzy nieaktywny obiekt ClientThread,
+	// który posiada tylko nazwê prototypow¹, potrzebn¹ dla
+	// metody setPrototypeDisplayValue z klasy JComboBox
+	ClientThread(String prototypeDisplayValue) {
+		name = prototypeDisplayValue;
+	}
+
+	ClientThread(PhoneBookServer server, Socket socket) {
+		myServer = server;
+		this.socket = socket;
+		new Thread(this).start(); // Utworzenie dodatkowego watka
+									// do obslugi komunikacji sieciowej
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public String toString() {
+		return name;
+	}
+
+	public void sendMessage(String message) {
+		try {
+			outputStream.writeObject(message);
+			if (message.equals("exit")) {
+				myServer.removeClient(this);
+				socket.close();
+				socket = null;
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public void run() {
+		// String message;
+		Data data = new Data();
+		try (ObjectOutputStream output = new ObjectOutputStream(socket.getOutputStream());
+				ObjectInputStream input = new ObjectInputStream(socket.getInputStream());) {
+			outputStream = output;
+			name = (String) input.readObject();
+			myServer.addClient(this);
+			while (true) {
+				myServer.phoneBook.chooseOperation((Data) input.readObject());
+				myServer.printReceivedMessage(this, data.getFirstParameter());
+				if (data.getFirstParameter().equals("exit")) {
+					myServer.removeClient(this);
+					break;
+				}
+			}
+			socket.close();
+			socket = null;
+		} catch (Exception e) {
+			myServer.removeClient(this);
+		}
+	}
+
+} // koniec klasy ClientThread
