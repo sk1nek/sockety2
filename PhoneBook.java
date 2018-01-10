@@ -1,52 +1,51 @@
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 final public class PhoneBook {
 
-	static enum TypeOfCommand {
-		LOAD, SAVE, GET, PUT, REPLACE, DELETE, LIST, CLOSE;
-	}
 
-	static ConcurrentHashMap<String, Integer> PhoneBookHashMap = new ConcurrentHashMap<String, Integer>();
+	private static ConcurrentHashMap<String, String> phoneBookHashMap = new ConcurrentHashMap<>();
 
-	PhoneBook() {
-		// PhoneBookHashMap.put("Pawe³", 32323223);
-		// PhoneBookHashMap.put("Mariusz", 12345679);
-	}
+	public String performOperation(Data data) {
 
-	public void chooseOperation(Data data) {
+		String ret = "ERROR Nieprawidlowy typ operacji.";
 
-		switch (data.typeOfCommand) {
+		switch (data.operationType.toLowerCase()) {
 
-		case "CLOSE":
-			CLOSE();
+		case "close":
+			ret = close();
 			break;
 
-		case "DELETE":
-			DELETE(data.firstParameter);
+		case "delete":
+			ret = delete(data.firstParameter);
 			break;
 
-		case "GET":
-			GET(data.firstParameter);
+		case "get":
+			ret = get(data.firstParameter);
 			break;
 
-		case "LIST":
-			LIST();
+		case "list":
+			ret = list();
 			break;
 
-		case "LOAD":
-			LOAD(data.firstParameter);
+		case "load":
+			ret = load(data.firstParameter);
 			break;
 
-		case "PUT":
-			PUT(data.firstParameter, data.secondParameter);
+		case "put":
+			ret = put(data.firstParameter, data.secondParameter);
 			break;
 
-		case "REPLACE":
-			REPLACE(data.firstParameter, data.secondParameter);
+		case "replace":
+			ret = replace(data.firstParameter, data.secondParameter);
 			break;
 
-		case "SAVE":
-			SAVE(data.firstParameter);
+		case "save":
+			ret = save(data.firstParameter);
 			break;
 
 		default:
@@ -54,69 +53,106 @@ final public class PhoneBook {
 
 		}
 
+		return ret;
 	}
 
-	public String LOAD(String fileName) {
+	public String load(String fileName) {
 
-		return null;
-	}
+		Path path = Paths.get(fileName);
 
-	public String SAVE(String fileName) {
-		// FileWriter fwriter = new FileWriter(fileName);
-		// ObjectOutputStream writer = new ObjectOutputStream(fwriter);
-		//
-		// writer.writeObject(PhoneBookHashMap);
-		//
-		// writer.close(); //don't forget to close the writer
-		return fileName;
-	}
+		try{
+			List<String> buffer = Files.readAllLines(path);
 
-	public String GET(String name) {
-		return name;
-	}
+			buffer.remove(0); //funkcja list() zwraca niepotrzebny naglowek, pozbywam sie go wiÄ™c
+			buffer.parallelStream().forEach(p-> {
+				String[] split = p.split(" : "); //sposob podzialu zastosowany w list()
+				phoneBookHashMap.put(split[0], split[1]);
+			});
 
-	public String PUT(String name, String number) {
-		if (name.equals(null) || name == "" || number.equals(null) || number == "") {
-			return "ERROR Przynajmniej jedno z podanych danych jest puste.";
+		}catch(IOException ioex){
+			ioex.printStackTrace();
+			return "ERROR Odczyt danych z pliku niemozliwy";
 		}
 
-		try {
-			Integer.parseInt(number);
-		} catch (NumberFormatException e) {
-			return "ERROR Z³y format podanego numeru.";
-		}
-
-		if (100000000 > Integer.parseInt(number) || 999999999 < Integer.parseInt(number)) {
-			return "ERROR Numer zawiera nieprawdi³ow¹ iloœæ cyfr.";
-		}
-
-		PhoneBookHashMap.put(name, Integer.parseInt(number));
 		return "OK";
 	}
 
-	public String REPLACE(String name, String number) {
-		return number;
+	public String save(String fileName) {
+
+		Path path = Paths.get(fileName);
+
+		try{
+			Files.write(path, list().getBytes());
+		}catch(IOException ioex){
+			ioex.printStackTrace();
+			return "ERROR Zapis do pliku niemozliwy.";
+		}
+
+		return "OK";
 	}
 
-	public String DELETE(String name) {
-		PhoneBookHashMap.remove(name);
-		return name;
+	public String get(String name) {
+
+		if(phoneBookHashMap.containsKey(name)){
+			return phoneBookHashMap.get(name);
+		}
+
+		return "ERROR Nie znaleziono takiej osoby.";
 	}
 
-	public void LIST() {
-		System.out.println("klasyka");
-		System.out.println("klasyka2");
-		PhoneBookHashMap.put("xD", 123);
-		System.out.println("klasyka3");
-		System.out.println("well: " + PhoneBookHashMap);
+	public String put(String name, String number) {
 
+		if (name == null || name.isEmpty() || number == null || number.isEmpty())
+			return "ERROR Przynajmniej jedno z podanych danych jest puste.";
+
+		if(!number.matches("\\d{9}"))
+			return "ERROR Numer nie sklada sie z dziewieciu cyfr.";
+
+		if (number.length() != 9)
+			return "ERROR Numer zawiera nieprawdiï¿½owï¿½ iloï¿½ï¿½ cyfr.";
+
+		phoneBookHashMap.put(name, number);
+		return "OK";
 	}
 
-	public String CLOSE() {
+	public String replace(String name, String number) {
+
+		if(!phoneBookHashMap.containsKey(name))
+			return "ERROR Nie znaleziono osoby w bazie danych.";
+		else
+			phoneBookHashMap.put(name, number);
+
+		return "OK";
+	}
+
+	public String delete(String name) {
+
+		if(phoneBookHashMap.containsKey(name)){
+			phoneBookHashMap.remove(name);
+			return "OK";
+		}else
+			return "ERROR Nie znaleziono osoby w bazie danych";
+	}
+
+	public String list() {
+
+		StringBuilder ret = new StringBuilder("Phone Book: \n");
+
+		phoneBookHashMap.forEach(
+				(k, v) -> ret.append(k)
+						.append(" : ")
+						.append(v)
+						.append('\n')
+		);
+
+		return ret.toString();
+	}
+
+	public String close() {
 		return null;
 	}
 
-	public String BYE() {
+	public String bye() {
 		return null;
 	}
 }

@@ -4,28 +4,28 @@ class Data implements Serializable {
 
 	private static final long serialVersionUID = 1L;
 
-	String typeOfCommand;
+	String operationType;
 	String firstParameter;
 	String secondParameter;
 
 	Data(String type, String first, String second) {
-		this.typeOfCommand = type;
+		this.operationType = type;
 		this.firstParameter = first;
 		this.secondParameter = second;
 	}
 
-	public Data() {
-		this.typeOfCommand = null;
+	Data() {
+		this.operationType = null;
 		this.firstParameter = null;
 		this.secondParameter = null;
 	}
 
-	public String getTypeOfCommand() {
-		return typeOfCommand;
+	public String getOperationType() {
+		return operationType;
 	}
 
-	public void setTypeOfCommand(String typeOfCommand) {
-		this.typeOfCommand = typeOfCommand;
+	public void setOperationType(String operationType) {
+		this.operationType = operationType;
 	}
 
 	public String getFirstParameter() {
@@ -46,7 +46,7 @@ class Data implements Serializable {
 
 	@Override
 	public String toString() {
-		return typeOfCommand + " " + firstParameter + " " + secondParameter;
+		return operationType + " " + firstParameter + " " + secondParameter;
 
 	}
 }

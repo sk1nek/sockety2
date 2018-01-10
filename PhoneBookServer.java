@@ -32,7 +32,9 @@ class PhoneBookServer extends JFrame implements ActionListener, Runnable {
 
 	PhoneBook phoneBook = new PhoneBook();
 
-	static final int SERVER_PORT = 25000;
+	private static final int SERVER_PORT = 25000;
+
+	private boolean serverClosingFlag = false;
 
 	public static void main(String[] args) {
 		new PhoneBookServer();
@@ -41,11 +43,12 @@ class PhoneBookServer extends JFrame implements ActionListener, Runnable {
 	private JLabel clientLabel = new JLabel("Odbiorca:");
 	private JLabel messageLabel = new JLabel("Napisz:");
 	private JLabel textAreaLabel = new JLabel("Dialog:");
-	private JComboBox<ClientThread> clientMenu = new JComboBox<ClientThread>();
+	private JComboBox<ClientThread> clientMenu = new JComboBox<>();
 	private JTextField messageField = new JTextField(20);
 	private JTextArea textArea = new JTextArea(15, 18);
 	private JScrollPane scroll = new JScrollPane(textArea, ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS,
 			ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+
 
 	PhoneBookServer() {
 		super("SERWER");
@@ -104,25 +107,25 @@ class PhoneBookServer extends JFrame implements ActionListener, Runnable {
 	public void run() {
 		boolean socket_created = false;
 
-		// inicjalizacja po³¹czeñ sieciowych
+		// inicjalizacja poï¿½ï¿½czeï¿½ sieciowych
 		try (ServerSocket serwer = new ServerSocket(SERVER_PORT)) {
 			String host = InetAddress.getLocalHost().getHostName();
-			System.out.println("Serwer zosta³ uruchomiony na hoscie " + host);
+			System.out.println("Serwer zostaï¿½ uruchomiony na hoscie " + host);
 			socket_created = true;
-			// koniec inicjalizacji po³¹czeñ sieciowych
+			// koniec inicjalizacji poï¿½ï¿½czeï¿½ sieciowych
 
-			while (true) { // oczekiwanie na po³¹czenia przychdz¹ce od klientów
+			while (!serverClosingFlag) { // oczekiwanie na poï¿½ï¿½czenia przychdzï¿½ce od klientï¿½w
 				Socket socket = serwer.accept();
 				if (socket != null) {
-					// Tworzy nowy w¹tek do obs³ugi klienta, które
-					// w³aœnie po³¹czy³ siê z serwerem.
+					// Tworzy nowy wï¿½tek do obsï¿½ugi klienta, ktï¿½re
+					// wï¿½aï¿½nie poï¿½ï¿½czyï¿½ siï¿½ z serwerem.
 					new ClientThread(this, socket);
 				}
 			}
 		} catch (IOException e) {
 			System.out.println(e);
 			if (!socket_created) {
-				JOptionPane.showMessageDialog(null, "Gniazdko dla serwera nie mo¿e byæ utworzone");
+				JOptionPane.showMessageDialog(null, "Gniazdko dla serwera nie moï¿½e byï¿½ utworzone");
 				System.exit(0);
 			} else {
 				JOptionPane.showMessageDialog(null, "BLAD SERWERA: Nie mozna polaczyc sie z klientem ");
@@ -130,6 +133,9 @@ class PhoneBookServer extends JFrame implements ActionListener, Runnable {
 		}
 	}
 
+	public void setServerClosingFlag(boolean serverClosingFlag) {
+		this.serverClosingFlag = serverClosingFlag;
+	}
 } // koniec klasy MyServer
 
 class ClientThread implements Runnable {
@@ -140,7 +146,7 @@ class ClientThread implements Runnable {
 	private ObjectOutputStream outputStream = null;
 
 	// UWAGA: Ten konstruktor tworzy nieaktywny obiekt ClientThread,
-	// który posiada tylko nazwê prototypow¹, potrzebn¹ dla
+	// ktï¿½ry posiada tylko nazwï¿½ prototypowï¿½, potrzebnï¿½ dla
 	// metody setPrototypeDisplayValue z klasy JComboBox
 	ClientThread(String prototypeDisplayValue) {
 		name = prototypeDisplayValue;
@@ -175,6 +181,9 @@ class ClientThread implements Runnable {
 	}
 
 	public void run() {
+
+		boolean exitFlag = false;
+
 		// String message;
 		Data data = new Data();
 		try (ObjectOutputStream output = new ObjectOutputStream(socket.getOutputStream());
@@ -182,8 +191,17 @@ class ClientThread implements Runnable {
 			outputStream = output;
 			name = (String) input.readObject();
 			myServer.addClient(this);
-			while (true) {
-				myServer.phoneBook.chooseOperation((Data) input.readObject());
+			while (!exitFlag) {
+				Data d = (Data) input.readObject();
+
+				if(d.operationType.equals("BYE"))
+					exitFlag = true;
+
+				if(d.operationType.equals("CLOSE"))
+					myServer.setServerClosingFlag(true);
+
+
+				myServer.phoneBook.performOperation(d);
 				myServer.printReceivedMessage(this, data.getFirstParameter());
 				if (data.getFirstParameter().equals("exit")) {
 					myServer.removeClient(this);
@@ -192,6 +210,8 @@ class ClientThread implements Runnable {
 			}
 			socket.close();
 			socket = null;
+			output.close();
+			input.close();
 		} catch (Exception e) {
 			myServer.removeClient(this);
 		}

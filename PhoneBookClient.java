@@ -22,14 +22,14 @@ import javax.swing.ScrollPaneConstants;
 
 class PhoneBookClient extends JFrame implements ActionListener, Runnable {
 
-	private String[] commands = { "LOAD", "SAVE", "GET", "PUT", "REPLACE", "DELETE", "LIST", "CLOSE", "BYE" };
+	private String[] commands = { "load", "save", "get", "put", "replace", "delete", "list", "close", "bye" };
 	private JTextField firstParameterField = new JTextField(10);
 	private JTextField secondParameterField = new JTextField(10);
 	private JTextArea textArea = new JTextArea(15, 18);
-	private JComboBox<String> commandComboBox = new JComboBox<String>(commands);
+	private JComboBox<String> commandComboBox = new JComboBox<>(commands);
 	private JButton acceptCommandButton = new JButton("Akceptuj");
 
-	static final int SERVER_PORT = 25000;
+	private static final int SERVER_PORT = 25000;
 	private String name;
 	private String serverHost;
 	private Socket socket;
@@ -38,7 +38,7 @@ class PhoneBookClient extends JFrame implements ActionListener, Runnable {
 
 	private static final long serialVersionUID = 1L;
 
-	public PhoneBookClient(String name, String host) {
+	PhoneBookClient(String name, String host) {
 
 		super(name);
 		this.name = name;
@@ -80,19 +80,17 @@ class PhoneBookClient extends JFrame implements ActionListener, Runnable {
 		secondParameterField.addActionListener(this);
 		acceptCommandButton.addActionListener(this);
 		fieldsManagment(true, false, "nazwa pliku", "");
-		commandComboBox.addItemListener(new ItemListener() {
-			public void itemStateChanged(ItemEvent event) {
-				fieldsCleaner();
-				Object item = event.getItem();
+		commandComboBox.addItemListener(event -> {
+            fieldsCleaner();
+            Object item = event.getItem();
 
-				textArea.setText("Affected items: " + item.toString());
+            textArea.setText("Affected items: " + item.toString());
 
-				if (event.getStateChange() == ItemEvent.SELECTED) {
-					configureOnCommandComboBoxItemSwitch(item.toString());
-					textArea.setText(item.toString() + " selected.");
-				}
-			}
-		});
+            if (event.getStateChange() == ItemEvent.SELECTED) {
+                configureOnCommandComboBoxItemSwitch(item.toString());
+                textArea.setText(item.toString() + " selected.");
+            }
+        });
 
 		panel.add(textAreaLabel);
 		JScrollPane scroll_bars = new JScrollPane(textArea, ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS,
@@ -122,6 +120,16 @@ class PhoneBookClient extends JFrame implements ActionListener, Runnable {
 	synchronized public void printSentMessage(String message) {
 		String text = textArea.getText();
 		textArea.setText(text + "<<< " + message + "\n");
+	}
+
+	private void closeClient(){
+		try{
+			inputStream.close();
+			outputStream.close();
+			socket.close();
+		}catch(IOException ioex){
+			ioex.printStackTrace();
+		}
 	}
 
 	@Override
@@ -192,39 +200,39 @@ class PhoneBookClient extends JFrame implements ActionListener, Runnable {
 	public void configureOnCommandComboBoxItemSwitch(String typeOfCommand) {
 
 		switch (typeOfCommand) {
-		case "LOAD":
+		case "load":
 			fieldsManagment(true, false, "nazwa pliku", "");
 			break;
 
-		case "SAVE":
+		case "save":
 			fieldsManagment(true, false, "nazwa pliku", "");
 			break;
 
-		case "GET":
+		case "get":
 			fieldsManagment(true, false, "imię", "");
 			break;
 
-		case "PUT":
+		case "put":
 			fieldsManagment(true, true, "imię", "numer");
 			break;
 
-		case "REPLACE":
+		case "replace":
 			fieldsManagment(true, true, "imię", "numer");
 			break;
 
-		case "DELETE":
+		case "delete":
 			fieldsManagment(true, false, "imię", "");
 			break;
 
-		case "LIST":
+		case "list":
 			fieldsManagment(false, false, "", "");
 			break;
 
-		case "CLOSE":
+		case "close":
 			fieldsManagment(false, false, "", "");
 			break;
 
-		case "BYE":
+		case "bye":
 			fieldsManagment(false, false, "", "");
 			break;
 		}
@@ -246,7 +254,7 @@ class PhoneBookClient extends JFrame implements ActionListener, Runnable {
 
 	public void sendOutPut(String typeOfCommand) {
 		switch (typeOfCommand) {
-		case "LOAD":
+		case "load":
 			try {
 				outputStream.writeObject(typeOfCommand);
 				outputStream.writeObject(firstParameterField.getText());
@@ -255,7 +263,7 @@ class PhoneBookClient extends JFrame implements ActionListener, Runnable {
 			}
 			break;
 
-		case "SAVE":
+		case "save":
 			try {
 				outputStream.writeObject(typeOfCommand);
 				outputStream.writeObject(firstParameterField.getText());
@@ -264,7 +272,7 @@ class PhoneBookClient extends JFrame implements ActionListener, Runnable {
 			}
 			break;
 
-		case "GET":
+		case "get":
 			try {
 				outputStream.writeObject(typeOfCommand);
 				outputStream.writeObject(firstParameterField.getText());
@@ -273,17 +281,7 @@ class PhoneBookClient extends JFrame implements ActionListener, Runnable {
 			}
 			break;
 
-		case "PUT":
-			try {
-				outputStream.writeObject(typeOfCommand);
-				outputStream.writeObject(firstParameterField.getText());
-				outputStream.writeObject(secondParameterField.getText());
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-			break;
-
-		case "REPLACE":
+		case "put":
 			try {
 				outputStream.writeObject(typeOfCommand);
 				outputStream.writeObject(firstParameterField.getText());
@@ -293,7 +291,17 @@ class PhoneBookClient extends JFrame implements ActionListener, Runnable {
 			}
 			break;
 
-		case "DELETE":
+		case "replace":
+			try {
+				outputStream.writeObject(typeOfCommand);
+				outputStream.writeObject(firstParameterField.getText());
+				outputStream.writeObject(secondParameterField.getText());
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			break;
+
+		case "delete":
 			try {
 				outputStream.writeObject(typeOfCommand);
 				outputStream.writeObject(firstParameterField.getText());
@@ -302,7 +310,7 @@ class PhoneBookClient extends JFrame implements ActionListener, Runnable {
 			}
 			break;
 
-		case "LIST":
+		case "list":
 			try {
 				outputStream.writeObject(typeOfCommand);
 			} catch (IOException e) {
@@ -310,7 +318,7 @@ class PhoneBookClient extends JFrame implements ActionListener, Runnable {
 			}
 			break;
 
-		case "CLOSE":
+		case "close":
 			try {
 				outputStream.writeObject(typeOfCommand);
 			} catch (IOException e) {
@@ -318,7 +326,7 @@ class PhoneBookClient extends JFrame implements ActionListener, Runnable {
 			}
 			break;
 
-		case "BYE":
+		case "bye":
 			try {
 				outputStream.writeObject(typeOfCommand);
 			} catch (IOException e) {
